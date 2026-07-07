@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fleet Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+<style>
+  /* Body & Background */
+body {
+    overflow-x: hidden;
+    font-family: Arial, sans-serif;
+    transition: all 0.3s;
+
+    /* ✅ Correct syntax for plain HTML */
+    background-image: url('images/GSDC-LOGO.png'); 
+    background-size: contain;        /* cover whole page */
+    background-position: center;   /* center the image */
+    background-repeat: no-repeat;  /* prevent tiling */
+    background-attachment: fixed;  /* optional: fixed when scrolling */
+}
+
+
+  /* Sidebar Menu */
+  .sidebar-menu {
+    position: fixed; top: 0; left: 0;
+    height: 100%; width: 250px;
+    background-color: #2563eb; color: white;
+    transition: all 0.3s; padding: 20px 0;
+    overflow-y: auto; z-index: 1000;
+  }
+  .sidebar-menu a {
+    color: #ffffff; padding: 12px 20px;
+    text-decoration: none; font-size: 18px;
+    display: flex; align-items: center; gap: 12px; transition: 0.3s;
+  }
+  .sidebar-menu a:hover { color: #2563eb; background-color: #ffffff; }
+  .sidebar-menu a.active { background-color: #1e40af; font-weight: bold; }
+  .sidebar-menu.open { left: 0; }
+  .sidebar-menu.closed { left: -250px; }
+
+  .overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none; z-index: 999;
+  }
+  .overlay.show { display: block; }
+
+  /* Dashboard layout */
+  .layout { display: flex; width: 100%; height: calc(100vh - 120px); overflow: hidden; transition: all 0.4s ease-in-out; }
+  #dashboard { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 250px; gap: 1.5rem; flex: 1; transition: all 0.5s ease-in-out; }
+
+  /* Dashboard cards with semi-transparent background */
+  .dashboard-card {
+    background: rgba(255,255,255,0.85); /* semi-transparent white */
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor:pointer;
+  }
+  .dashboard-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+
+  .card-header { font-weight: bold; color: white; padding: 0.25rem; border-radius: 0.25rem; text-align: center; font-size: 0.9rem; }
+  .sidebar { width: 75%; height: 100%; background: white; box-shadow: -2px 0 6px rgba(0,0,0,0.2); overflow-y: auto; overflow-x:auto; padding: 1rem; transform: translateX(100%); transition: transform 0.4s ease-in-out; z-index: 50; position: absolute; top: 0; right: 0; }
+  .sidebar.open { transform: translateX(0); }
+  .clickable { cursor:pointer; }
+  .clickable:hover { opacity:0.8; }
+  .shrink-mode { display: flex !important; flex-direction: column; gap: 1rem; width: 30%; max-width: 350px; overflow-y: auto; padding-right: 1rem; }
+  .shrink-mode .dashboard-card { width: 105%; max-width: 340px; min-height: 220px; margin: 0 auto; }
+  .highlighted { box-shadow: 0 0 20px rgba(99,102,241,0.6), 0 0 40px rgba(99,102,241,0.3); transform: scale(1.05); border: 2px solid rgba(99,102,241,0.6); z-index: 10; }
+
+  .status-count { cursor:pointer; }
+  .status-count:hover { opacity:0.8; }
+  .table-container { max-height:80vh; overflow-y:auto; overflow-x:auto; }
+  table { width:200%; border-collapse: collapse; table-layout: auto; min-width: 1200px; }
+  th, td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-size: 0.8rem; }
+  th { background-color: #f3f4f6; position: sticky; top: 0; z-index: 5; }
+  tbody tr:nth-child(even) { background-color: #f9fafb; }
+  tbody tr:hover { background-color: #e0f2fe; }
+
+  /* Status label colors */
+  .status-label { display: inline-block; font-size: x-small; font-weight: 750; padding: 1px 3px; border-radius: 3px; margin-bottom: 1px; }
+  .status-label.total      { background: #ffffff; color: #265999; }
+  .status-label.target     { background: #ffffff; color: #7CBFA7; }
+  .status-label.idle       { background: #ffffff; color: #ffb412; }
+  .status-label.available  { background: #ffffff; color: #22C55E; }
+  .status-label.preloaded  { background: #ffffff; color: #CA8A04; }
+  .status-label.on-trip    { background: #ffffff; color: #16A34A; }
+  .status-label.at-yard    { background: #ffffff; color: #075985; }
+  .status-label.outside    { background: #ffffff; color: #FCD34D; }
+  .status-label.approved   { background: #ffffff; color: #B91C1C; } 
+  .status-label.for-resc   { background: #ffffff; color: #7F1D1D; }
+  .status-label.accepted   { background: #ffffff; color: #EA580C; }
+  .status-label.wfp        { background: #ffffff; color: #FB923C; }
+  .status-label.on-resc    { background: #ffffff; color: #374151; }
+</style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Sidebar Menu -->
+<div id="mySidebar" class="sidebar-menu closed">
+  <h2 class="text-center text-2xl font-bold mb-6">Cement Truck Capacity Summary</h2>
+  <a href="{{ url('/home') }}"><i class="fas fa-home"></i> Home</a>
+  <a href="{{ url('/fleetcapacitydashboard') }}" class="active"><i class="fas fa-chart-bar"></i>Fleet Capacity Dashboard</a>
+  <a href="{{ url('/drivercapacitydashboard') }}"><i class="fas fa-truck"></i> Driver Capacity Dashboard</a>
+  <a href="{{ url('/') }}"><i class="fas fa-cogs"></i> Module A</a>
+  <a href="{{ url('/') }}"><i class="fas fa-database"></i> Module B</a>
+</div>
+
+<!-- Overlay -->
+<div id="overlay" class="overlay" onclick="closeNav()"></div>
+
+<!-- Floating Sidebar Toggle Button -->
+<button 
+  class="fixed top-4 left-4 z-50 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition text-2xl"
+  onclick="openNav()">
+  &#9776;
+</button>
+
+<!-- Header -->
+<header class="p-6 border-b bg-white shadow-sm flex flex-col gap-1">
+  <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-500 text-center">Fleet Capacity Dashboard</h1>
+  <div class="text-center mt-2">
+    <p class="text-xs text-gray-500">Last synced: <span id="lastSynced"></span></p>
+  </div>
+</header>
+
+<!-- Main Dashboard Layout -->
+<div class="p-6 relative">
+  <div class="layout">
+    <section id="dashboard"></section>
+    <aside id="sidebar" class="sidebar"></aside>
+  </div>
+</div>
+
+<script>
+/* --- Sidebar Menu Logic --- */
+function openNav(){ 
+  document.getElementById("mySidebar").classList.replace("closed","open"); 
+  document.getElementById("overlay").classList.add("show"); 
+}
+function closeNav(){ 
+  document.getElementById("mySidebar").classList.replace("open","closed"); 
+  document.getElementById("overlay").classList.remove("show"); 
+}
+
+/* --- Data & Dashboard Logic --- */
+const lastSyncedEl=document.getElementById("lastSynced");
+function updateLastSynced(){ lastSyncedEl.innerText=new Date().toLocaleString(); }
+
+const themeColors={
+  trucktotal:"bg-blue-500",truckavailable:"bg-green-500",
+  truckpending:"bg-yellow-400",truckongoing:"bg-red-500",
+  trailertotal:"bg-blue-500",traileravailable:"bg-green-500",
+  trailerpending:"bg-yellow-400",trailerongoing:"bg-red-500"
+};
+
+const truckHeaders=['Unit','Team','Brand','Pair','JRNumber','JRStatus','RequestStatus','Repair Location','Tag','JR Age','Approval Age','JO Num','JO Activity','ETR','Parts ETA','UR Status','Last Location','Last Update','Yard','At Yard Timestamp','ToA at Yard','SBUO STATUS','OE','Ops Remarks'];
+const trailerHeaders=['Unit','Team','Classification','Pair','JRNumber','JRStatus','RequestStatus','Repair Location','Tag','JR Age','Approval Age','ETR','JO Num','JO Activity','Parts ETA','UR Status','LAST LOCATION','LAST UPDATE','YARD','AT YARD TIMESTAMP','TOA','SBUO STATUS','OE','Ops Remarks','Axle','Sub Engine'];
+
+let fetchedData={result:[],trailer_data:[]}; 
+let activeCard=null;
+
+/* --- Cards Definition --- */
+const cards=[
+  {id:'trucktotal',title:'TOTAL',type:'truck',statuses:['TOTAL','UP%','TARGET'],isTotal:true},
+  {id:'truckavailable',title:' Available',type:'truck',statuses:['IDLE','AVAILABLE','PRELOADED','ON TRIP']},
+  {id:'truckpending',title:'Pending JR',type:'truck',statuses:['AT YARD','OUTSIDE','APPROVED','FOR RESC']},
+  {id:'truckongoing',title:'On Going JR',type:'truck',statuses:['ACCEPTED','WFP','ON RESC']},
+  {id:'trailertotal',title:'TOTAL',type:'trailer',statuses:['TOTAL','UP%','TARGET'],isTotal:true},
+  {id:'traileravailable',title:'Available',type:'trailer',statuses:['IDLE','AVAILABLE','PRELOADED','ON TRIP']},
+  {id:'trailerpending',title:'Pending JR',type:'trailer',statuses:['AT YARD','OUTSIDE','APPROVED','FOR RESC']},
+  {id:'trailerongoing',title:'On Going JR',type:'trailer',statuses:['ACCEPTED','WFP','ON RESC']}
+];
+
+/* --- Status Normalizer --- */
+function normalizeStatus(s){ 
+  if(!s) return ""; 
+  s=s.trim().toUpperCase();
+  if(s.includes("IDLE"))return"IDLE"; 
+  if(s.includes("AVAILABLE"))return"AVAILABLE";
+  if(s.includes("PRELOADED"))return"PRELOADED"; 
+  if(s.includes("TRIP"))return"ON TRIP";
+  if(s.includes("YARD"))return"AT YARD"; 
+  if(s.includes("OUTSIDE"))return"OUTSIDE";
+  if(s.includes("APPROV"))return"APPROVED"; 
+  if(s.includes("FOR RESC"))return"FOR RESC";
+  if(s.includes("ACCEPTED"))return"ACCEPTED"; 
+  if(s.includes("WFP"))return"WFP";
+  if(s.includes("ON RESC"))return"ON RESC"; 
+  return s; 
+}
+
+function mapFetchedRow(row,t){
+  const o={};
+  const h=t==='truck'?truckHeaders:trailerHeaders;
+  h.forEach((x,i)=>o[x]=row[i]??'');
+  o.Status=normalizeStatus(o['UR Status']||o['UR STATUS']||'');
+  return o;
+}
+
+/* --- Helper to map status class to color --- */
+function getStatusColor(cls){
+  switch(cls){
+    case 'total': return '#265999';
+    case 'target': return '#7CBFA7';
+    case 'idle': return '#ffb412';
+    case 'available': return '#22C55E';
+    case 'preloaded': return '#CA8A04';
+    case 'on-trip': return '#16A34A';
+    case 'at-yard': return '#075985';
+    case 'outside': return '#FCD34D';
+    case 'approved': return '#B91C1C';
+    case 'for-resc': return '#7F1D1D';
+    case 'accepted': return '#EA580C';
+    case 'wfp': return '#FB923C';
+    case 'on-resc': return '#374151';
+  }
+}
+
+/* --- Render Dashboard Cards --- */
+function renderEmptyDashboard(){
+  const dash = document.getElementById('dashboard'); 
+  let html = '';
+
+  cards.forEach(c => {
+    const hc = c.id.includes('total') ? 'bg-blue-500 text-white' : 
+               c.id.includes('available') ? 'bg-green-500 text-white' : 
+               c.id.includes('pending') ? 'bg-yellow-400 text-white' : 
+               'bg-red-500 text-white';
+
+    html += `
+    <div class="dashboard-card" data-card="${c.id}">
+      <div class="text-center rounded-lg ${hc} p-4">
+        <div class="text-lg font-semibold text-white mb-1 uppercase">${c.title}</div>
+        <div class="text-3xl font-bold text-white big-number">0</div>
+      </div>
+      <div class="grid gap-2 text-center text-xs font-semibold mt-3" style="grid-template-columns: repeat(${c.statuses.length},1fr);">
+        ${c.statuses.map(s => {
+          const cls = s.toLowerCase().replace(/\s+/g,'-');
+          return `<div class="status-count">
+                    <span class="status-label ${cls}">${s}</span>
+                    <div class="font-bold" style="color: ${getStatusColor(cls)}">0</div>
+                  </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+
+  dash.innerHTML = html;
+}
+
+/* --- Data Fetch --- */
+async function loadData(){
+  try{
+    const r=await fetch("/fetch-data");
+    const j=await r.json();
+    fetchedData.result=j.result?.map(x=>mapFetchedRow(x,'truck'))||[];
+    fetchedData.trailer_data=j.trailer_data?.map(x=>mapFetchedRow(x,'trailer'))||[];
+  }catch(e){ fetchedData={result:[],trailer_data:[]} }
+  populateDashboard(fetchedData);
+  updateLastSynced();
+}
+
+/* --- Update Counts --- */
+function populateDashboard(data){
+  cards.forEach(c=>{
+    const ds=c.type==='truck'?data.result:data.trailer_data;
+    const counts={}; c.statuses.forEach(s=>counts[s]=0);
+    if(!c.isTotal)c.statuses.forEach(s=>counts[s]=ds.filter(r=>normalizeStatus(r.Status)===s).length);
+
+    const tot=ds.length;
+    if(c.isTotal){
+      const cap=ds.filter(r=>["IDLE","AVAILABLE","PRELOADED","ON TRIP"].includes(normalizeStatus(r.Status))).length;
+      counts["TOTAL"]=tot; counts["UP%"]=tot>0?((cap/tot)*100).toFixed(1)+"%":"0%"; counts["TARGET"]="75%";
+    }
+    const sum=c.isTotal?counts["TOTAL"]:c.statuses.reduce((a,s)=>a+(counts[s]||0),0);
+
+    const cardEl=document.querySelector(`.dashboard-card[data-card="${c.id}"]`);
+    if(!cardEl)return;
+    cardEl.querySelector(".big-number").innerText=sum;
+
+    const scEls=cardEl.querySelectorAll(".status-count");
+    c.statuses.forEach((s,i)=>{
+      scEls[i].querySelector(".font-bold").innerText=counts[s];
+      scEls[i].onclick=(e)=>{ e.stopPropagation(); openSidebar(c.id,s); };
+    });
+
+    cardEl.querySelector(".big-number").onclick=(e)=>{ e.stopPropagation(); openSidebar(c.id); };
+    cardEl.onclick=()=>openSidebar(c.id);
+  });
+}
+
+/* --- Sidebar Logic --- */
+function openSidebar(card, statusFilter = null) {
+  document.body.style.overflow = "hidden";   // 🚫 freeze page scroll
+  const sb = document.getElementById('sidebar');
+  sb.classList.add("open");
+  const dash = document.getElementById('dashboard');
+
+  if (activeCard) activeCard.classList.remove("highlighted");
+  const cc = document.querySelector(`.dashboard-card[data-card="${card}"]`);
+  cc.classList.add("highlighted");
+  activeCard = cc;
+
+  dash.classList.add('shrink-mode');
+
+  const ds = card.includes('truck') ? fetchedData.result : fetchedData.trailer_data;
+  if (!ds.length) {
+    sb.innerHTML = '<p>No data available</p>';
+    return;
+  }
+
+  // ✅ Initial filter
+  let filtered = [];
+  if (statusFilter) {
+    filtered = ds.filter(r => normalizeStatus(r.Status) === statusFilter);
+  } else {
+    const cardObj = cards.find(c => c.id === card);
+    if (cardObj && cardObj.statuses && !cardObj.isTotal) {
+      filtered = ds.filter(r => cardObj.statuses.includes(normalizeStatus(r.Status)));
+    } else {
+      filtered = [...ds];
+    }
+  }
+
+  const cols = Object.keys(ds[0]);
+
+  // ✅ Build statusText function
+  function getStatusText(rows) {
+    if (statusFilter) {
+      return `SHOWING STATUS: <strong>${statusFilter}</strong> &nbsp;&nbsp; TOTAL: <strong>${rows.length}</strong>`;
+    } else {
+      const cardObj = cards.find(c => c.id === card);
+      if (cardObj && cardObj.statuses && cardObj.statuses.length) {
+        if (cardObj.isTotal) {
+          return `SHOWING ALL STATUSES &nbsp;&nbsp; TOTAL: <strong>${rows.length}</strong>`;
+        } else {
+          return `SHOWING STATUS: <strong>${cardObj.statuses.join(", ")}</strong> &nbsp;&nbsp; TOTAL: <strong>${rows.length}</strong>`;
+        }
+      }
+    }
+    return "";
+  }
+
+
+// ✅ Filter UI (TEAM + UR STATUS + TAG + Search + Limit + Reset)
+const filterUI = `
+<div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+  <label>TEAM:</label>
+  <select id="filter-team" class="border p-1 rounded">
+    <option value="">All</option>
+    ${[...new Set(ds.map(r => r.Team).filter(v => v && v !== "Team"))]
+        .sort((a,b)=>a.localeCompare(b))
+        .map(t=>`<option value="${t}">${t}</option>`).join("")}
+  </select>
+
+  <label>UR STATUS:</label>
+  <select id="filter-ur" class="border p-1 rounded">
+    <option value="">All</option>
+    ${[...new Set(ds.map(r => r["UR Status"] || r["UR STATUS"])
+        .filter(v => v && v.toUpperCase() !== "UR STATUS"))]
+        .sort((a,b)=>a.localeCompare(b))
+        .map(u=>`<option value="${u}">${u}</option>`).join("")}
+  </select>
+
+  <label>TAG:</label>
+  <select id="filter-tag" class="border p-1 rounded">
+    <option value="">ALL</option>
+    ${[...new Set(
+        ds.map(r => r.Tag || r.TAG || r.tag)
+          .filter(v => v && ["MINOR","MAJOR"].includes(v.toUpperCase()))
+      )]
+      .map(v => v.toUpperCase())
+      .sort((a,b)=>a.localeCompare(b))
+      .map(tag => `<option value="${tag}">${tag}</option>`).join("")}
+  </select>
+
+  <label>Search:</label>
+  <input type="text" id="filter-search" 
+         placeholder="Search HEAD, TRAILER, JR, JO" 
+         class="border p-1 rounded w-60">
+
+  <label class="ml-4">SHOW ITEMS:</label>
+  <select id="filter-limit" class="border p-1 rounded">
+     <option value="">All</option>
+    <option value="10">10</option>
+    <option value="25">25</option>
+    <option value="50">50</option>
+  </select>
+
+  <span class="ml-4 text-gray-600" id="row-count"></span>
+  <button id="reset-filters" class="ml-4 px-3 py-1 bg-gray-300 hover:bg-gray-400 rounded">Reset</button>
+</div>
+
+<!-- ✅ Column Selection Checkboxes -->
+<div class="flex flex-wrap gap-2 mb-4 text-sm">
+  ${['Unit','Team','Brand','Pair','JRNumber','JRStatus','RequestStatus','Repair Location','Tag','JR Age','Approval Age','JO Num','JO Activity','ETR','Parts ETA','UR Status','Last Location','Last Update','Yard','At Yard Timestamp','ToA at Yard','SBUO STATUS','OE','Ops Remarks'].map(col => `
+    <label class="inline-flex items-center gap-1">
+      <input type="checkbox" class="column-toggle" data-col="${col}" ${['Unit','Team','Brand','Pair','JRNumber','JRStatus','RequestStatus','Tag','JR Age','Approval Age','JO Num','JO Activity','ETR','Parts ETA','UR Status'].includes(col) ? 'checked' : ''}>
+      ${col}
+    </label>
+  `).join('')}
+</div>
+`;
+
+
+  // ✅ Sidebar wrapper
+  sb.innerHTML = `
+    <div class="p-4 rounded-lg ${(themeColors[card] || 'bg-gray-500')} text-white mb-4">
+      <button onclick="closeSidebar()" 
+        class="mb-2 px-4 py-2 bg-white text-black font-bold rounded-lg shadow">← Back</button>
+      <button onclick="exportTableToCSV('export.csv')" 
+        class="mt-2 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700">⬇ Export CSV</button>
+    </div>
+
+    <div id="status-text" class="mb-4 text-sm font-semibold text-gray-800">
+      ${getStatusText(filtered)}
+    </div>
+    ${filterUI}
+
+    <div class="table-container">
+      <table id="exportTable">
+        <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  `;
+// ✅ After sb.innerHTML assignment in openSidebar, add this:
+sb.querySelectorAll('.column-toggle').forEach(cb => {
+  cb.addEventListener('change', function() {
+    const colName = this.dataset.col;
+    const table = document.getElementById('exportTable');
+    if(!table) return;
+    const idx = Array.from(table.querySelectorAll('th')).findIndex(th => th.innerText === colName);
+    if(idx === -1) return;
+
+    // Toggle column visibility
+    table.querySelectorAll('tr').forEach(row => {
+      if(row.children[idx]) row.children[idx].style.display = this.checked ? '' : 'none';
+    });
+  });
+});
+  const tbody = sb.querySelector("#exportTable tbody");
+  const rowCountEl = sb.querySelector("#row-count");
+  const statusTextEl = sb.querySelector("#status-text");
+
+  function renderRows(rows) {
+    const limit = sb.querySelector("#filter-limit").value;
+    let shown = rows;
+    if (limit) shown = rows.slice(0, parseInt(limit));
+    tbody.innerHTML = shown.map(r =>
+      `<tr>${cols.map(c => `<td>${r[c] ?? ''}</td>`).join('')}</tr>`
+    ).join('');
+    rowCountEl.textContent = `${rows.length} rows (showing ${shown.length})`;
+
+    // ✅ Update header text dynamically
+    statusTextEl.innerHTML = getStatusText(rows);
+  }
+  renderRows(filtered);
+
+  // ✅ Apply filters
+  function applyFilters() {
+    let rows = [...filtered];
+    const team = sb.querySelector("#filter-team").value;
+    const ur = sb.querySelector("#filter-ur").value;
+    const tag = sb.querySelector("#filter-tag").value;
+    const search = sb.querySelector("#filter-search").value.toLowerCase();
+
+    if (team) rows = rows.filter(r => r.Team === team);
+    if (ur) rows = rows.filter(r => (r["UR Status"] || r["UR STATUS"]) === ur);
+   if (tag) {
+  const tagUpper = tag.toUpperCase();
+  rows = rows.filter(r =>
+    (r.Tag || r.TAG || r.tag || "")
+      .toString()
+      .trim()
+      .toUpperCase() === tagUpper
+  );
+}
+
+    if (search) {
+      rows = rows.filter(r =>
+        Object.values(r).some(val => (val ?? "").toString().toLowerCase().includes(search))
+      );
+    }
+    renderRows(rows);
+  }
+
+  sb.querySelector("#filter-team").onchange = applyFilters;
+  sb.querySelector("#filter-ur").onchange = applyFilters;
+  sb.querySelector("#filter-tag").onchange = applyFilters;
+  sb.querySelector("#filter-search").oninput = applyFilters;
+  sb.querySelector("#filter-limit").onchange = applyFilters;
+
+  // ✅ Reset
+  sb.querySelector("#reset-filters").onclick = () => {
+    sb.querySelector("#filter-team").value = "";
+    sb.querySelector("#filter-ur").value = "";
+    sb.querySelector("#filter-tag").value = "";
+    sb.querySelector("#filter-search").value = "";
+    sb.querySelector("#filter-limit").value = "";
+    renderRows(filtered);
+  };
+
+}
+
+function closeSidebar(){
+  document.body.style.overflow = "auto";    // ✅ restore page scroll
+  const sb=document.getElementById('sidebar');
+  sb.classList.remove('open');
+  document.getElementById('dashboard').classList.remove('shrink-mode');
+  if(activeCard){
+    activeCard.classList.remove("highlighted");
+    activeCard=null;
+  }
+}
+/* --- Export Function --- */
+function exportTableToCSV(filename){
+  const t=document.getElementById("exportTable");if(!t)return;
+  const rows=t.querySelectorAll("tr");const csv=[];
+  rows.forEach(r=>{const cols=r.querySelectorAll("td,th");const row=[];
+    cols.forEach(c=>row.push(c.innerText.replace(/,/g,"")));
+    csv.push(row.join(","));});
+  const blob=new Blob([csv.join("\n")],{type:"text/csv"});
+  const link=document.createElement("a");link.download=filename;
+  link.href=URL.createObjectURL(blob);document.body.appendChild(link);link.click();
+}
+
+
+/* --- Init --- */
+window.addEventListener('DOMContentLoaded',()=>{ renderEmptyDashboard(); loadData(); setInterval(loadData,300000); });
+</script>
+
+
+</body>
+</html>

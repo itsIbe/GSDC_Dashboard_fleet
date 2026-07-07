@@ -1,0 +1,1627 @@
+    @php
+    use App\Models\AuditLog;
+AuditLog::create([
+    'user_id' => Auth::id(),
+    'action' => 'Home',
+    'ip_address' => request()->ip(),
+    'description' => 'Viewed home',
+]);@endphp
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+    if (window.performance && window.performance.navigation.type === 2) {
+        // Force a full reload if user navigates back
+        location.reload();
+    }
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cement Truck Capacity Summary</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+<style>
+  body { overflow-x: hidden; font-family: Arial, sans-serif; transition: all 0.3s; }
+
+  .sidebar-menu {
+    position: fixed; top: 0; left: 0; height: 100%; width: 250px;
+    color: white; background: linear-gradient(to right, #60A5FA, #2563EB);
+    transition: all 0.3s; padding: 20px 0; overflow-y: auto; z-index: 1000;
+  }
+  .sidebar-menu a { color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 12px; transition: 0.3s;}
+  .sidebar-menu a:hover { color: #2563eb; background-color: #ffffff;}
+  .sidebar-menu a.active { background-color: #1e40af; font-weight: bold;}
+  .sidebar-menu.open { left: 0; }
+  .sidebar-menu.closed { left: -250px; }
+  .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 999; }
+  .overlay.show { display: block; }
+  .clickable { cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .clickable:hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+  .clickable:active { transform: scale(0.98); }
+  /* 🔹 Breakdown Section Styling */
+  #breakdownSection {
+    transition: all 0.3s ease-in-out;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  #breakdownGrid > div {
+    border-radius: 1rem;
+    padding: 1rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #breakdownGrid > div:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+  }/* Breakdown Modal Styling */
+#breakdownModal1 {
+  display: none; 
+  position: fixed;
+  inset: 0; 
+  background-color: rgba(0,0,0,0.5);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 1rem; /* slightly smaller padding so modal can grow */
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+/* Show modal with fade-in */
+#breakdownModal1.flex {
+  display: flex;
+  opacity: 1;
+}
+/* Modal content */
+
+/* Table wrapper */
+#breakdownModal1 .table-container {
+  width: 95%;          /* almost full width */
+  max-width: 1400px;   /* cap for very large screens */
+  max-height: 1400px;
+  overflow: auto;      /* scroll if content exceeds height */
+  border-radius: 0.75rem; 
+  border: 1px solid #6e9dfcff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25); 
+  background-color: #fff;
+  padding: 1.5rem;     /* comfortable spacing */
+}
+
+
+
+/* Table */
+#breakdownModal1 table {  
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+/* Hidden state */
+#breakdownModal1.hidden {
+  display: none;
+}
+
+/* Visible modal */
+#breakdownModal1.flex {
+  display: flex;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* Fade out */
+#breakdownModal1.fade-out {
+  opacity: 0;
+}
+
+/* Header cells */
+#breakdownModal1 th {
+  background-color: #004183ff;
+  color: #ffffffff;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* shadow under header */
+}
+
+/* Body cells */
+#breakdownModal1 td {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+  white-space: nowrap;
+}
+
+#breakdownModal1 th:first-child { background-color: #004183ff; }
+#breakdownModal1 td:first-child { background-color: #ffffff; }
+/* First column sticky */
+#breakdownModal1 th:first-child,
+#breakdownModal1 td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05); /* divider shadow for sticky col */
+}
+#breakdownModal1 tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+
+}
+/* Top-left corner */
+#breakdownModal1 th:first-child {
+  border-top-left-radius: 0.75rem;
+  z-index: 7;
+}
+
+/* Top-right corner */
+#breakdownModal1 th:last-child {
+  border-top-right-radius: 0.75rem;
+}
+
+/* Bottom-left corner */
+#breakdownModal1 tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 0.75rem;
+}
+
+/* Bottom-right corner */
+#breakdownModal1 tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 0.75rem;
+}
+
+/* Row striping */
+#breakdownModal1 tbody tr:nth-child(even) {
+  background-color: #BDDDE4;
+}
+#breakdownModal1 tbody tr:nth-child(odd) {
+  background-color: #ffffffff;
+}
+
+/* Row hover */
+#breakdownModal1 tbody tr:hover {
+  background-color: #9EC6F3;
+  cursor: pointer;
+}
+
+</style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Sidebar Menu -->
+<div id="mySidebar" class="sidebar-menu closed flex flex-col justify-between">
+  <div>
+    <h1 class=" text-center text-1xl font-bold mb-6">
+      Great Sierra Development Corporation
+    </h1>
+
+
+    <!-- 👤 User Profile Section -->
+    <div class="flex flex-col items-center px-4 mb-6">
+      <!-- Profile Picture -->
+      <img src="{{ Auth::user()->profile_photo_url ?? asset('images/default-avatar.png') }}" 
+           alt="User Avatar" 
+           class="w-20 h-20 rounded-full border-4 border-white shadow-md mb-3">
+
+      <!-- User Name -->
+      <p class="text-lg font-semibold text-white text-center">
+        {{ Auth::user()->display_name }}
+      </p>
+      
+      <!-- ✅ User Position -->
+      <p class="text-sm text-gray-200 text-center"> 
+        {{ Auth::user()->position ?? 'Employee' }}
+      </p>
+       <!-- ✅ User Position -->
+      <p class="text-sm text-white-500 font-bold text-center">        
+        {{ Auth::user()->location ?? 'Employee' }}
+      </p>
+    </div>
+
+   @php
+    $user = auth()->user();
+@endphp
+
+@if(!$user->isAdmin()) 
+    <!-- Links visible only to regular users -->
+    <a href="{{ url('/home') }}" class="active"><i class="fas fa-home"></i> Home</a>
+    <a href="{{ url('/fleetcapacitydashboard') }}"><i class="fas fa-chart-bar"></i> Fleet Capacity Dashboard</a>
+    <a href="{{ url('/drivercapacitydashboard') }}"><i class="fas fa-truck"></i> Driver Capacity Dashboard</a>
+@endif
+
+@if($user->isAdmin())
+    <!-- Links visible only to admin -->
+    <a href="{{ url('/home') }}" class="active"><i class="fas fa-home"></i> Home</a>
+    <a href="{{ url('/fleetcapacitydashboard') }}"><i class="fas fa-chart-bar"></i> Fleet Capacity Dashboard</a>
+    <a href="{{ url('/drivercapacitydashboard') }}"><i class="fas fa-truck"></i> Driver Capacity Dashboard</a>
+    <a href="{{ url('/createuser') }}"><i class="fas fa-user-plus"></i> Create New User</a>
+    <a href="{{ route('audit.index') }}"><i class="fas fa-clipboard-list"></i> Audit Logs</a>
+@endif
+  </div>
+
+  <!-- ✅ Logout Button -->
+  <form method="POST" action="{{ route('logout') }}" class="mt-6 px-4">
+    @csrf
+    <button type="submit" 
+      class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center justify-center gap-2">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </button>
+  </form>
+</div>
+<div id="overlay" class="overlay" onclick="closeNav()"></div>
+<button class="fixed top-4 left-4 z-50 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition text-2xl" onclick="openNav()">&#9776;</button>
+<!-- ✅ Responsive Fixed Top Bar -->
+<header class="fixed top-0 left-0 w-full bg-white shadow-sm border-b z-40 flex flex-col md:flex-row md:items-center md:justify-between px-4 md:px-6 py-3 md:py-4 gap-1">
+  <!-- Optional: Left placeholder for sidebar button on desktop -->
+  <div class="hidden md:block w-10"></div>
+
+  <!-- Center: Title + Last Synced -->
+  <div class="flex-1 text-center">
+    <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-500">
+      Truck, Trailer & Driver Capacity
+    </h1>
+    <p class="text-xs sm:text-sm text-gray-500 mt-1">
+      Last synced: <span id="lastSynced"></span>
+    </p>
+  </div>
+  <!-- Optional: Right placeholder for spacing -->
+  <div class="hidden md:block w-10"></div>
+</header>
+<!-- Add padding so content isn't hidden under fixed header -->
+<div class="pt-24 sm:pt-28 md:pt-32"></div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <!-- 🚛 TRUCK CARD -->
+  <div class="bg-gradient-to-r from-blue-600 to-blue-300 p-6 rounded-xl shadow-md text-white">
+    <h2 class="text-lg md:text-xl font-bold">TRUCK</h2>
+    <p id="truckTotal" class="text-5xl font-extrabold mt-2">0</p>
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- AVAILABLE -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div class="bg-gradient-to-r from-green-400 to-green-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('availabletruck')">
+          <h2 class="text-lg md:text-xl font-bold">AVAILABLE</h2>
+          <p id="truckAvailableTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-2 text-center py-2">
+          <div><p class="text-orange-500 text-xs font-semibold">IDLE</p><p id="truckIdle" class="font-bold text-orange-500">0</p></div>
+          <div><p class="text-green-500 text-xs font-semibold">AVAILABLE</p><p id="truckAvailable" class="font-bold text-green-500">0</p></div>
+          <div><p class="text-yellow-600 text-xs font-semibold">PRELOADED</p><p id="truckPreloaded" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-emerald-600 text-xs font-semibold">ON TRIP</p><p id="truckOnTrip" class="font-bold text-emerald-600">0</p></div>
+        </div>
+      </div>
+      <!-- PENDING JR -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div class="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('pendingtruck')">
+          <h2 class="text-lg md:text-xl font-bold">PENDING JR</h2>
+          <p id="truckPendingTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-2 text-center py-2">
+          <div><p class="text-blue-600 text-xs font-semibold">AT YARD</p><p id="truckAtYard" class="font-bold text-blue-600">0</p></div>
+          <div><p class="text-yellow-600 text-xs font-semibold">OUTSIDE</p><p id="truckOutside" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-red-600 text-xs font-semibold">APPROVED</p><p id="truckApproved" class="font-bold text-red-600">0</p></div>
+          <div><p class="text-red-600 text-xs font-semibold">FOR RESC</p><p id="truckForRescue" class="font-bold text-red-600">0</p></div>
+        </div>
+      </div>
+      <!-- ONGOING JR -->
+      <div class="clickable bg-white rounded-2xl shadow-lg col-span-1 sm:col-span-2">
+        <div class="bg-gradient-to-br from-red-200 via-red-400 to-red-200 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('ongoingtruck')">
+          <h2 class="text-lg md:text-xl font-bold">ON GOING JR</h2>
+          <p id="truckOngoingTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 text-center py-3">
+          <div><p class="text-orange-600 font-semibold">ACCEPTED</p><p id="truckAccepted" class="font-bold text-orange-600">0</p></div>
+          <div><p class="text-yellow-600 font-semibold">WFP</p><p id="truckWFP" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-red-600 font-semibold">NOT RELEASED</p><p id="truckNotReleased" class="font-bold text-red-600">0</p></div>
+          <div><p class="text-red-600 font-semibold">ON RESC</p><p id="truckOnResc" class="font-bold text-red-600">0</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 🚚 TRAILER CARD -->
+  <div class="bg-gradient-to-r from-green-600 to-green-300 p-6 rounded-xl shadow-md text-white">
+    <h2 class="text-lg md:text-xl font-bold">TRAILER</h2>
+    <p id="trailerTotal" class="text-5xl font-extrabold mt-2">0</p>
+
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- AVAILABLE -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div class="bg-gradient-to-r from-green-400 to-green-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('availabletrailer')">
+          <h2 class="text-lg md:text-xl font-bold">AVAILABLE</h2>
+          <p id="trailerAvailableTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-2 text-center py-2">
+          <div><p class="text-orange-500 text-xs font-semibold">IDLE</p><p id="trailerIdle" class="font-bold text-orange-500">0</p></div>
+          <div><p class="text-green-500 text-xs font-semibold">AVAILABLE</p><p id="trailerAvailable" class="font-bold text-green-500">0</p></div>
+          <div><p class="text-yellow-600 text-xs font-semibold">PRELOADED</p><p id="trailerPreloaded" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-emerald-600 text-xs font-semibold">ON TRIP</p><p id="trailerOnTrip" class="font-bold text-emerald-600">0</p></div>
+        </div>
+      </div>
+      <!-- PENDING JR -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div class="bg-gradient-to-r from-yellow-300 to-yellow-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('pendingtrailer')">
+          <h2 class="text-lg md:text-xl font-bold">PENDING JR</h2>
+          <p id="trailerPendingTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-2 text-center py-2">
+          <div><p class="text-blue-600 text-xs font-semibold">AT YARD</p><p id="trailerAtYard" class="font-bold text-blue-600">0</p></div>
+          <div><p class="text-yellow-600 text-xs font-semibold">OUTSIDE</p><p id="trailerOutside" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-red-600 text-xs font-semibold">APPROVED</p><p id="trailerApproved" class="font-bold text-red-600">0</p></div>
+          <div><p class="text-red-600 text-xs font-semibold">FOR RESC</p><p id="trailerForRescue" class="font-bold text-red-600">0</p></div>
+        </div>
+      </div>
+      <!-- ONGOING JR -->
+      <div class="clickable bg-white rounded-2xl shadow-lg col-span-1 sm:col-span-2">
+        <div class="bg-gradient-to-br from-red-200 via-red-400 to-red-200 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('ongoingtrailer')">
+          <h2 class="text-lg md:text-xl font-bold">ON GOING JR</h2>
+          <p id="trailerOngoingTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 text-center py-3">
+          <div><p class="text-orange-600 font-semibold">ACCEPTED</p><p id="trailerAccepted" class="font-bold text-orange-600">0</p></div>
+          <div><p class="text-yellow-600 font-semibold">WFP</p><p id="trailerWFP" class="font-bold text-yellow-600">0</p></div>
+          <div><p class="text-red-600 font-semibold">NOT RELEASED</p><p id="trailerNotReleased" class="font-bold text-red-600">0</p></div>
+          <div><p class="text-red-600 font-semibold">ON RESC</p><p id="trailerOnResc" class="font-bold text-red-600">0</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 🧑 DRIVER CARD -->
+  <div class="bg-gradient-to-br from-red-400 via-red-200 to-red-400 p-6 rounded-2xl shadow-md text-white">
+    <h2 class="text-lg md:text-xl font-bold">DRIVER</h2>
+    <p id="driverTotal" class="text-5xl font-extrabold mt-4">0</p>
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="clickable bg-white text-gray-700 p-3 rounded-xl shadow text-center" onclick="showBreakdown('driveractive')">
+        <p class="md:text-xl font-semibold">ACTIVE</p>
+        <p id="driverActive" class="text-lg text-red-500">0</p>
+      </div>
+      <div class="clickable bg-white text-gray-700 p-3 rounded-xl shadow text-center" onclick="showBreakdown('driverinactive')">
+        <p class="md:text-xl font-semibold">INACTIVE</p>
+        <p id="driverInactive" class="text-lg text-red-500">0</p>
+      </div>
+      <!-- PRESENT -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div id="count-present" class="bg-gradient-to-r from-green-400 to-green-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('driverpresent')">
+          <h2 class="md:text-xl text-lg font-bold">PRESENT</h2>
+          <p id="driverPresentTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-3 text-center py-2">
+          <div><p class="text-green-500 text-xs font-semibold">RUNNING</p><p id="driverRunning" class="font-bold text-green-500">0</p></div>
+          <div><p class="text-green-500 text-xs font-semibold">AVAILABLE</p><p id="driverAvailable" class="font-bold text-green-500">0</p></div>
+          <div><p class="text-yellow-600 text-xs font-semibold">REST</p><p id="driverRest" class="font-bold text-yellow-600">0</p></div>
+        </div>
+      </div>
+      <!-- ABSENT -->
+      <div class="clickable bg-white rounded-2xl shadow-lg">
+        <div class="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white text-center py-4 rounded-t-2xl" onclick="showBreakdown('driverabsent')">
+          <h2 class="md:text-xl text-lg font-bold">ABSENT</h2>
+          <p id="driverAbsentTotal" class="text-3xl font-extrabold">0</p>
+        </div>
+        <div class="grid grid-cols-2 text-center py-2">
+          <div><p class="text-orange-500 text-xs font-semibold">UR ABSENT</p><p id="driverURAbsent" class="font-bold text-orange-500">0</p></div>
+          <div><p class="text-green-500 text-xs font-semibold">ABSENT</p><p id="driverAbsent" class="font-bold text-green-500">0</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 📊 BREAKDOWN SECTION -->
+<div class="mt-6 w-full col-span-3"> 
+  <h2 class="text-lg font-bold text-gray-700 mb-3">&nbsp;Breakdown</h2>
+  <div id="breakdownSection" class="mt-6 hidden"> 
+    <div id="breakdownGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4"></div>
+  </div>
+</div>
+<!-- ✅ One shared Breakdown Modal -->
+<div id="breakdownModal1" 
+     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" 
+     onclick="outsideClick(event)">
+ <div class="bg-white rounded-xl shadow-xl w-11/13 max-w-10xl p-0 relative animate-fadeIn
+              max-h-[100vh] overflow-y-auto"
+       onclick="event.stopPropagation()">
+    <button onclick="closeBreakdownModal1()" 
+            class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">✕</button>
+    <!-- ✅ Green header bar -->
+    <div class="bg-gradient-to-r from-blue-400 to-blue-500 h-3 rounded-t-xl"></div>
+    <!-- ✅ Modal title / SHOWING STATUS -->
+    <div class="px-6 py-3 text-sm text-gray-700 flex items-center justify-between border-b">
+      <div>
+        <span class="font-semibold">SHOWING STATUS:</span>
+        <span id="modalTitle" class="font-bold"></span>
+      </div>
+    </div>
+    <!-- ✅ Modern Dropdowns + Search Section with total -->
+    <div class="px-6 py-3 bg-gradient-to-r from-blue-100 via-blue-200 to-blue-100 flex items-center gap-4 flex-wrap border-b justify-between">
+      <div class="flex items-center gap-3 flex-wrap w-full md:w-auto">
+        <!-- TEAM Dropdown -->
+        <div class="relative">
+          <label for="teamFilter" class="sr-only">TEAM</label>
+          <select id="teamFilter" 
+                  class="block appearance-none w-full bg-white border border-gray-300 rounded-lg py-2 px-4 pr-8 text-sm text-gray-700 font-medium shadow-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="">TEAM</option>
+            <option value="SBUO-1A">SBUO-1A</option>
+            <option value="SBUO-1B">SBUO-1B</option>
+            <option value="SBUO-1C">SBUO-1C</option>
+            <option value="SBUO-1D">SBUO-1D</option>
+            <option value="SBUO-2A">SBUO-2A</option>
+            <option value="SBUO-2B">SBUO-2B</option>
+            <option value="SBUO-3A">SBUO-3A</option>
+            <option value="SBUO-4A">SBUO-4A</option>
+            <option value="TM">TM</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <path d="M5.516 7.548l4.484 4.484 4.484-4.484z"/>
+            </svg>
+          </div>
+        </div>
+        <!-- UR STATUS Dropdown -->
+        <div class="relative">
+          <label for="statusFilter" class="sr-only">UR STATUS</label>
+          <select id="statusFilter" 
+              class="block appearance-none w-full bg-white border border-gray-300 rounded-lg py-2 px-4 pr-8 text-sm text-gray-700 font-medium shadow-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="">UR Status</option>
+            <option value="ACCEPTED">ACCEPTED</option>
+            <option value="APPROVED">APPROVED</option>
+            <option value="YARD">AT YARD</option>
+            <option value="AVAILABLE">AVAILABLE</option>
+            <option value="IDLE">IDLE</option>
+            <option value="NOT RELEASED">NOT RELEASED</option>
+            <option value="ON TRIP">ON TRIP</option>
+            <option value="OUTSIDE">OUTSIDE</option>
+            <option value="WFP">WFP</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <path d="M5.516 7.548l4.484 4.484 4.484-4.484z"/>
+            </svg>
+          </div>
+        </div>
+        <!-- TAG Dropdown -->
+        <div class="relative">
+          <label for="tagFilter" class="sr-only">TAG</label>
+          <select id="tagFilter" 
+            class="block appearance-none w-full bg-white border border-gray-300 rounded-lg py-2 px-4 pr-8 text-sm text-gray-700 font-medium shadow-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="">TAG</option>
+            <option value="Minor">MINOR</option>
+            <option value="Major">MAJOR</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <path d="M5.516 7.548l4.484 4.484 4.484-4.484z"/>
+            </svg>
+          </div>
+        </div>
+        <!-- SEARCH BOX -->
+        <div class="relative flex-1 min-w-[250px]">
+          <label for="searchInput" class="sr-only">SEARCH</label>
+          <input type="text" id="searchInput" placeholder="Search HEAD, TRAILER, JR" 
+                 class="block w-full bg-white border border-gray-300 rounded-lg py-2 px-4 text-sm md:text-base text-gray-700 font-medium shadow-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300">
+          <div class="absolute inset-y-0 right-3 flex items-center text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+            </svg>
+          </div>
+        </div>
+              <!-- TOTAL Display -->
+      <div class="flex items-center gap-1">
+        <span class="font-medium">Pause:</span> 
+        <span id="pauseValue" class="font-medium"></span>
+      </div>
+         <!-- TOTAL Display -->
+      <div class="flex items-center gap-1">
+        <span class="font-medium">Resume:</span> 
+        <span id="resumeValue" class="font-medium"></span>
+      </div>
+         <!-- TOTAL Display -->
+      <div class="flex">
+        <span class="font-medium">Start:</span> 
+        <span id="startValue" class="font-medium"></span>
+      </div>
+      </div>
+      <!-- TOTAL Display -->
+      <div class="flex items-center gap-1">
+        <span class="font-semibold">TOTAL:</span> 
+        <span id="modalValue" class="font-bold"></span>
+      </div>
+    </div>
+    <!-- ✅ Modal Content -->
+    <div class="px-6 pb-6">
+      <div class="overflow-x-auto max-h-[500px] overflow-y-auto border rounded-lg">
+        <table id="modalTable" class="min-w-full text-sm text-left border-collapse">
+          <thead id="modalTableHead"></thead>
+          <tbody id="modalTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+<!-- JR Details Modal -->
+<div id="jrDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto p-4">
+  <div id="jrDetailsBox" class="bg-white rounded-xl shadow-xl border border-blue-300 w-full max-w-[1000px] p-6 relative max-h-[90vh] overflow-auto transition-transform transform scale-95 opacity-0">
+    <button onclick="closeJRDetailsModal()" class="absolute top-1 right-2 font-extrabold text-blue-500 hover:text-blue-800">✕</button>
+    <div class="bg-gradient-to-r from-blue-400 to-blue-500 h-3 rounded-t-xl mb-4"></div>
+    <div class="px-6 py-3 text-sm text-gray-700 flex items-center justify-between border-b">
+      <span id="jrDetailsTitle" class="font-semibold">JR DETAILS</span>
+    </div>
+    <div id="jrDetailsContent" class="px-6 pb-6">
+      <div class="overflow-x-auto max-h-[500px] overflow-y-auto border rounded-lg">
+        <table id="jrDetailsTable" class="min-w-full text-sm text-left border-collapse">
+          <thead id="jrDetailsHead"></thead>
+          <tbody id="jrDetailsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- JO Details Modal -->
+<div id="joDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto p-4">
+  <div id="joDetailsBox" class="bg-white rounded-xl shadow-xl border border-orange-300 w-full max-w-[1000px] p-6 relative max-h-[90vh] overflow-auto transition-transform transform scale-95 opacity-0">
+    <button onclick="closeJODetailsModal()" class="absolute top-1 right-2 font-extrabold text-blue-500 hover:text-blue-800">✕</button>
+    <div class="bg-gradient-to-r from-orange-400 to-orange-500 h-3 rounded-t-xl mb-4"></div>
+    <div class="px-6 py-3 text-sm text-gray-700 flex items-center justify-between border-b">
+      <span id="joDetailsTitle" class="font-semibold">JO DETAILS</span>
+    </div>
+    <div id="joDetailsContent" class="px-6 pb-6">
+      <div class="overflow-x-auto max-h-[500px] overflow-y-auto border rounded-lg">
+        <table id="joDetailsTable" class="min-w-full text-sm text-left border-collapse">
+          <thead id="joDetailsHead"></thead>
+          <tbody id="joDetailsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  loadData(); // load everything (truck, trailer, driver)
+});
+async function loadData() {
+  try {
+    const res = await fetch("/fetch-data");
+    const json = await res.json();
+
+    // 🟩 Truck dataset
+    json.result = (json.result || [])
+      .slice(1)
+      .map(row => mapFetchedRow(row, "truck"));
+
+    // 🟦 Trailer dataset
+    json.trailer_data = (json.trailer_data || [])
+      .slice(1)
+      .map(row => mapFetchedRow(row, "trailer"));
+
+    // 🟨 Driver dataset
+    json.driver_data = (json.driver_data || [])
+      .slice(1)
+      .map(mapDriverRow);
+
+    // 🟥 JO dataset
+    json.jo_detail = (json.jo_detail || [])
+      .slice(1)
+      .map(row => ({
+        joNumber: row[0] || "",         // JONumber
+        repairId: row[1] || "",         // Repair ID
+        selectedUR: row[2] || "",       // Selected UR
+        activity: row[3] || "",         // Activity
+        class: row[4] || "",            // Class
+        location: row[5] || "",         // Location
+        joRemarks: row[6] || "",        // JO Remarks
+        joNotes: row[7] || "",          // JO Notes
+        wrf: row[8] || "",              // WRF#
+        prRemarks: row[9] || "",        // PR Remarks
+        itemDesc: row[10] || "",        // Item Desc
+        eta: row[11] || "",             // ETA
+        etr: row[12] || "",             // ETR
+      }));
+
+    // 🟧 JR dataset
+    json.jr_detail = (json.jr_detail || [])
+      .slice(1)
+      .map(row => ({
+        jrNumber: row[0] || "",          // JR
+        repair: row[1] || "",            // Repair
+        joNumber: row[2] || "",          // JO #
+        maintenanceRemarks: row[3] || "",// Maintenance Remarks
+      }));
+
+    // 🧭 Assign globals
+    truckRows   = json.result;
+    trailerRows = json.trailer_data;
+    driverRows  = json.driver_data;
+    joRows      = json.jo_detail;
+    jrRows      = json.jr_detail;
+
+    // expose globally (for modals)
+    window.jo_detail = json.jo_detail;
+    window.jr_detail = json.jr_detail;
+
+    // 🪄 Update UI
+    populateDashboard(json);
+    updateDriverCards(json.driver_data || []);
+    updateLastSynced();
+
+    console.log("✅ All data loaded:", {
+      trucks: truckRows.length,
+      trailers: trailerRows.length,
+      drivers: driverRows.length,
+      jos: joRows.length,
+      jrs: jrRows.length,
+    });
+  } catch (e) {
+    console.error("❌ Error fetching:", e);
+  }
+}
+
+
+// Sidebar functions
+function openNav(){document.getElementById("mySidebar").classList.remove("closed"); document.getElementById("mySidebar").classList.add("open"); document.getElementById("overlay").classList.add("show");}
+function closeNav(){document.getElementById("mySidebar").classList.remove("open"); document.getElementById("mySidebar").classList.add("closed"); document.getElementById("overlay").classList.remove("show");}
+function updateLastSynced(){document.getElementById("lastSynced").textContent=new Date().toLocaleString();}
+
+let truckRows = [];   // all truck data
+let trailerRows = []; // all trailer data
+const breakdownData = {
+  availabletruck: [{label:"IDLE", value:0},{label:"AVAILABLE", value:0},{label:"PRELOADED", value:0},{label:"ON TRIP", value:0}],
+  pendingtruck: [{label:"AT YARD", value:0},{label:"OUTSIDE", value:0},{label:"APPROVED", value:0},{label:"FOR RESC", value:0}],
+  ongoingtruck: [{label:"ACCEPTED", value:0},{label:"WFP", value:0},{label:"NOT RELEASED", value:0},{label:"ON RESC", value:0}],
+  availabletrailer: [{label:"IDLE", value:0},{label:"AVAILABLE", value:0},{label:"PRELOADED", value:0},{label:"ON TRIP", value:0}],
+  pendingtrailer: [{label:"AT YARD", value:0},{label:"OUTSIDE", value:0},{label:"APPROVED", value:0},{label:"FOR RESC", value:0}],
+  ongoingtrailer: [{label:"ACCEPTED", value:0},{label:"WFP", value:0},{label:"NOT RELEASED", value:0},{label:"ON RESC", value:0}],
+  driverpresent: [], driverabsent:[]
+};
+// --- Normalize status strings ---
+function normalizeStatus(s){ 
+  if(!s) return ""; 
+  s = s.trim().toUpperCase();
+  if(s.includes("IDLE")) return "IDLE"; 
+  if(s.includes("AVAILABLE")) return "AVAILABLE";
+  if(s.includes("PRELOADED")) return "PRELOADED"; 
+  if(s.includes("TRIP")) return "ON TRIP";
+  if(s.includes("YARD")) return "AT YARD"; 
+  if(s.includes("OUTSIDE")) return "OUTSIDE";
+  if(s.includes("APPROV")) return "APPROVED"; 
+  if(s.includes("FOR RESC")) return "FOR RESC";
+  if(s.includes("ACCEPTED")) return "ACCEPTED"; 
+  if(s.includes("WFP")) return "WFP";
+  if(s.includes("NOT RELEASED")) return "NOT RELEASED";
+  if(s.includes("ON RESC")) return "ON RESC"; 
+  return s; 
+}
+// --- ✅ Map row to object with normalized status (works for truck & trailer) ---
+function mapFetchedRow(row, type = "truck") {
+  const isTrailer = type === "trailer";
+
+  return {
+    Unit: row[0] || "",
+    Team: row[1] || "",
+    BrandOrClassification: row[2] || "",
+    Pair: row[3] || "",
+    JRNumber: row[4] || "",
+    JRStatus: row[5] || "",
+    RequestStatus: row[6] || "",
+    RepairLocation: row[7] || "",
+    Tag: row[8] || "",
+    JRAge: row[9] || "",
+    ApprovalAge: row[10] || "",
+    
+    // ⚙️ Different column positions
+    ETR: isTrailer ? row[11] || "" : row[13] || "",
+    JONum: isTrailer ? row[12] || "" : row[11] || "",
+    JOActivity: isTrailer ? row[13] || "" : row[12] || "",
+    PartsETA: row[14] || "",
+    Status: normalizeStatus(row[15] || ""),
+    LastLocation: row[16] || "",
+    LastUpdate: row[17] || "",
+    Yard: row[18] || "",
+    AtYardTimestamp: row[19] || "",
+    ToAYard: row[20] || "",
+    SBUOStatus: row[21] || "",
+    OE: row[22] || "",
+    OpsRemarks: row[23] || "",
+    Axle: row[24] || "",
+    SubEngine: row[25] || "",
+    GPSStatus: row[26] || "",
+    TripStatus: row[27] || "",
+    ForRescue: row[28] || "",
+    JORemarks: row[29] || "",
+    PRRemarks: row[30] || ""
+  };
+}
+
+/* ================================
+   JO DETAIL MAPPER
+================================ */
+function mapJORow(row) {
+  return {
+    JRNumber:        row[0],
+    JONumber:        row[1],
+    RepairID:        row[2],
+    SelectedUR:      row[3],
+    Activity:        row[4],
+    Class:           row[5],
+    Location:        row[6],
+    JORemarks:       row[7],
+    JONotes:         row[8],
+    WRFNumber:       row[9],
+    PRRemarks:       row[10],
+    ItemDesc:        row[11],
+    ETA:             row[12],
+    ETR:             row[13],
+    Repair:          row[14] || "",
+    MaintenanceRemarks: row[15] || ""
+  };
+}
+
+// --- Dashboard card config ---
+const cards = [
+  {id: "truck",statuses: ["IDLE","AVAILABLE","PRELOADED","ON TRIP","AT YARD","OUTSIDE","APPROVED","FOR RESC","ACCEPTED","WFP","NOT RELEASED","ON RESC"]},
+  {id: "trailer",statuses: ["IDLE","AVAILABLE","PRELOADED","ON TRIP","AT YARD","OUTSIDE","APPROVED","FOR RESC","ACCEPTED","WFP","NOT RELEASED","ON RESC"]}];
+// --- Helper to avoid NaN ---
+function safeCount(counts, key){ return counts[key] || 0;}
+// --- Populate cards ---
+function populateDashboard(data){
+  cards.forEach(c=>{
+    const ds = c.id === "truck" ? data.result : data.trailer_data;
+    const counts = {};
+    c.statuses.forEach(s=>counts[s]=0);
+    ds.forEach(r=>{
+      const s = r.Status;
+      if(counts.hasOwnProperty(s)) counts[s]++;
+    });
+    // Update totals
+  if(c.id === "truck"){
+  const truckTotal = c.statuses.reduce((sum, s) => sum + safeCount(counts, s), 0);
+  document.getElementById("truckTotal").textContent = truckTotal;
+      breakdownData.availabletruck[0].value = safeCount(counts,"IDLE");
+      breakdownData.availabletruck[1].value = safeCount(counts,"AVAILABLE");
+      breakdownData.availabletruck[2].value = safeCount(counts,"PRELOADED");
+      breakdownData.availabletruck[3].value = safeCount(counts,"ON TRIP");
+      breakdownData.pendingtruck[0].value = safeCount(counts,"AT YARD");
+      breakdownData.pendingtruck[1].value = safeCount(counts,"OUTSIDE");
+      breakdownData.pendingtruck[2].value = safeCount(counts,"APPROVED");
+      breakdownData.pendingtruck[3].value = safeCount(counts,"FOR RESC");
+      breakdownData.ongoingtruck[0].value = safeCount(counts,"ACCEPTED");
+      breakdownData.ongoingtruck[1].value = safeCount(counts,"WFP");
+      breakdownData.ongoingtruck[2].value = safeCount(counts,"NOT RELEASED");
+      breakdownData.ongoingtruck[3].value = safeCount(counts,"ON RESC");
+      
+      // ✅ Subtotals
+      document.getElementById("truckIdle").textContent = safeCount(counts,"IDLE");
+      document.getElementById("truckAvailable").textContent = safeCount(counts,"AVAILABLE");
+      document.getElementById("truckPreloaded").textContent = safeCount(counts,"PRELOADED");
+      document.getElementById("truckOnTrip").textContent = safeCount(counts,"ON TRIP");
+      document.getElementById("truckAtYard").textContent = safeCount(counts,"AT YARD");
+      document.getElementById("truckOutside").textContent = safeCount(counts,"OUTSIDE");
+      document.getElementById("truckApproved").textContent = safeCount(counts,"APPROVED");
+      document.getElementById("truckForRescue").textContent = safeCount(counts,"FOR RESC");
+      document.getElementById("truckAccepted").textContent = safeCount(counts,"ACCEPTED");
+      document.getElementById("truckWFP").textContent = safeCount(counts,"WFP");
+      document.getElementById("truckNotReleased").textContent = safeCount(counts,"NOT RELEASED");
+      document.getElementById("truckOnResc").textContent = safeCount(counts,"ON RESC");
+
+      // ✅ Auto-calc totals
+      document.getElementById("truckAvailableTotal").textContent =
+        safeCount(counts,"IDLE") + safeCount(counts,"AVAILABLE") + safeCount(counts,"PRELOADED") + safeCount(counts,"ON TRIP");
+      document.getElementById("truckPendingTotal").textContent =
+        safeCount(counts,"AT YARD") + safeCount(counts,"OUTSIDE") + safeCount(counts,"APPROVED") + safeCount(counts,"FOR RESC");
+      document.getElementById("truckOngoingTotal").textContent =
+        safeCount(counts,"ACCEPTED") + safeCount(counts,"WFP") + safeCount(counts,"NOT RELEASED") + safeCount(counts,"ON RESC");
+    } 
+    
+    else if(c.id === "trailer"){
+  const trailerTotal = c.statuses.reduce((sum, s) => sum + safeCount(counts, s), 0);
+  document.getElementById("trailerTotal").textContent = trailerTotal;
+      breakdownData.availabletrailer[0].value = safeCount(counts,"IDLE");
+      breakdownData.availabletrailer[1].value = safeCount(counts,"AVAILABLE");
+      breakdownData.availabletrailer[2].value = safeCount(counts,"PRELOADED");
+      breakdownData.availabletrailer[3].value = safeCount(counts,"ON TRIP");
+
+      breakdownData.pendingtrailer[0].value = safeCount(counts,"AT YARD");
+      breakdownData.pendingtrailer[1].value = safeCount(counts,"OUTSIDE");
+      breakdownData.pendingtrailer[2].value = safeCount(counts,"APPROVED");
+      breakdownData.pendingtrailer[3].value = safeCount(counts,"FOR RESC");
+
+      breakdownData.ongoingtrailer[0].value = safeCount(counts,"ACCEPTED");
+      breakdownData.ongoingtrailer[1].value = safeCount(counts,"WFP");
+      breakdownData.ongoingtrailer[2].value = safeCount(counts,"NOT RELEASED");
+      breakdownData.ongoingtrailer[3].value = safeCount(counts,"ON RESC");
+
+      document.getElementById("trailerIdle").textContent = safeCount(counts,"IDLE");
+      document.getElementById("trailerAvailable").textContent = safeCount(counts,"AVAILABLE");
+      document.getElementById("trailerPreloaded").textContent = safeCount(counts,"PRELOADED");
+      document.getElementById("trailerOnTrip").textContent = safeCount(counts,"ON TRIP");
+      document.getElementById("trailerAvailableTotal").textContent =
+        safeCount(counts,"IDLE") + safeCount(counts,"AVAILABLE") + safeCount(counts,"PRELOADED") + safeCount(counts,"ON TRIP");
+
+      // --- ✅ Pending JR ---
+      breakdownData.pendingtrailer[0].value = safeCount(counts,"AT YARD");
+      breakdownData.pendingtrailer[1].value = safeCount(counts,"OUTSIDE");
+      breakdownData.pendingtrailer[2].value = safeCount(counts,"APPROVED");
+      breakdownData.pendingtrailer[3].value = safeCount(counts,"FOR RESC");
+
+      document.getElementById("trailerAtYard").textContent = safeCount(counts,"AT YARD");
+      document.getElementById("trailerOutside").textContent = safeCount(counts,"OUTSIDE");
+      document.getElementById("trailerApproved").textContent = safeCount(counts,"APPROVED");
+      document.getElementById("trailerForRescue").textContent = safeCount(counts,"FOR RESC");
+      document.getElementById("trailerPendingTotal").textContent =
+        safeCount(counts,"AT YARD") + safeCount(counts,"OUTSIDE") + safeCount(counts,"APPROVED") + safeCount(counts,"FOR RESC");
+
+      // --- ✅ On Going JR ---
+      breakdownData.ongoingtrailer[0].value = safeCount(counts,"ACCEPTED");
+      breakdownData.ongoingtrailer[1].value = safeCount(counts,"WFP");
+      breakdownData.ongoingtrailer[2].value = safeCount(counts,"NOT RELEASED");
+      breakdownData.ongoingtrailer[3].value = safeCount(counts,"ON RESC");
+
+      document.getElementById("trailerAccepted").textContent = safeCount(counts,"ACCEPTED");
+      document.getElementById("trailerWFP").textContent = safeCount(counts,"WFP");
+      document.getElementById("trailerNotReleased").textContent = safeCount(counts,"NOT RELEASED");
+      document.getElementById("trailerOnResc").textContent = safeCount(counts,"ON RESC");
+      document.getElementById("trailerOngoingTotal").textContent =
+        safeCount(counts,"ACCEPTED") + safeCount(counts,"WFP") + safeCount(counts,"NOT RELEASED") + safeCount(counts,"ON RESC");
+    }
+  });
+}
+function showBreakdown(type){
+  const section=document.getElementById("breakdownSection");
+  const grid=document.getElementById("breakdownGrid");
+  grid.innerHTML="";
+  if(!breakdownData[type]) return;
+
+  // 🎨 Color by type
+  let colorClass = "from-blue-400 to-blue-600"; // truck default
+  if(type.includes("trailer")) colorClass = "from-green-400 to-green-600";
+  if(type.includes("driver")) colorClass = "from-red-300 via-red-400 to-red-300";
+
+  breakdownData[type].forEach(item=>{
+    grid.innerHTML+=`
+      <div 
+        onclick="openBreakdownModal1('${item.label}', '${item.value}', '${type}')"
+        class="cursor-pointer text-white p-4 rounded-xl shadow-lg text-center font-bold bg-gradient-to-r ${colorClass}">
+        <p class="text-sm">${item.label}</p>
+        <p class="text-2xl">${item.value}</p>
+      </div>`;
+  });
+
+  section.classList.remove("hidden");
+}
+
+// Wrap the original data arrays with Proxy to detect changes
+function makeReactive(array, onChange) {
+  return new Proxy(array, {
+    set(target, prop, value) {
+      target[prop] = value;
+      onChange(); // call refresh function whenever array changes
+      return true;
+    },
+    deleteProperty(target, prop) {
+      delete target[prop];
+      onChange();
+      return true;
+    }
+  });
+}
+
+ function loadDriverData(rawDriverData) {
+    driverRows = (rawDriverData || []).slice(1).map(mapDriverRow);
+    console.log("Driver rows mapped:", driverRows);
+  }
+// ================= MAP DRIVER ROW =================
+function mapDriverRow(row) {
+  return {
+    Tractor: row[0] || "",
+    Trailer: row[1] || "",
+    TeamTMS: row[2] || "",
+    Driver: row[3] || "",
+    Helper: row[4] || "",
+    Team: row[5] || "",
+    TripStatus: (row[6] || "").trim().toUpperCase(),
+    Attendance: (row[7] || "").trim().toUpperCase(),
+    AssignedTrip: row[8] || "",
+    Remarks: row[9] || "",
+    LastUpdated: row[10] || "",
+    PairedTrailer: row[11] || "",
+    TractorJR: row[12] || "",
+    TractorUR: (row[13] || "").trim().toUpperCase(),
+    TrailerJR: row[14] || "",
+    TrailerUR: (row[15] || "").trim().toUpperCase(),
+    StatusAge: row[16] || ""
+  };
+}
+
+
+  let driverRows = [];
+
+let currentModal = null; // store current open modal info
+
+
+// ================= OPEN MODAL =================
+function openBreakdownModal1(label, value, type) {
+  const modal = document.getElementById("breakdownModal1");
+  const thead = document.getElementById("modalTableHead");
+
+  modal.classList.remove("hidden", "fade-out");
+  modal.classList.add("flex");
+
+  document.getElementById("modalTitle").textContent = `${label} (${type.toUpperCase()})`;
+
+  const modalDriverHeaders = [
+    "Tractor", "Trailer", "TeamTMS", "Driver", "Helper", "Team",
+    "TripStatus", "Attendance", "AssignedTrip", "Remarks", "LastUpdated",
+    "PairedTrailer", "TractorJR", "TractorUR", "TrailerJR", "TrailerUR", "StatusAge"
+  ];
+
+  const modalTruckTrailerHeaders = [
+    "Unit","Team","BrandOrClassification","Pair","JRNumber","JRStatus","RequestStatus","RepairLocation",
+    "Tag","JRAge","ApprovalAge","JONum","JOActivity","ETR","PartsETA","Status",
+    "LastLocation","LastUpdate","Yard","AtYardTimestamp","ToAYard","SBUOStatus",
+    "OE","OpsRemarks","GPSStatus","TripStatus","ForRescue","JORemarks"
+  ];
+
+  const headers = type.includes("driver") ? modalDriverHeaders : modalTruckTrailerHeaders;
+  currentModal = { label, type, headers };
+
+  // ✅ Build header row
+  thead.innerHTML = "";
+  const trHead = document.createElement("tr");
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+
+  refreshModalIfOpen();
+}
+
+// ================= REFRESH MODAL =================
+function refreshModalIfOpen() {
+  if (!currentModal) return;
+
+  const { label, type, headers } = currentModal;
+  const tbody = document.getElementById("modalTableBody");
+  const modalValue = document.getElementById("modalValue");
+
+  tbody.innerHTML = "";
+  let filteredRows = [];
+
+  // ================= FILTER DATA =================
+  if (type.includes("driver")) {
+    const lbl = (label || "").trim().toUpperCase();
+    const mapping = {
+      "RUNNING": { field: "TripStatus", value: "RUNNING" },
+      "AVAILABLE": { field: "TripStatus", value: "AVAILABLE" },
+      "DRIVER PREPARING": { field: "TripStatus", value: "DRIVER PREPAIRING" },
+      "DRIVER AVAILABLE": { field: "TripStatus", value: "DRIVER AVAILABLE" },
+      "FOR RESCUE": { field: "TripStatus", value: "FOR RESCUE" },
+      "UR AVAILABLE DRIVER": { field: "TripStatus", value: "UR AVAILABLE DRIVER" },
+      "UR REST": { field: "TripStatus", value: "UR REST" },
+      "REST": { field: "TripStatus", value: "REST" },
+      "UR ABSENT": { field: "TripStatus", value: "UR ABSENT" },
+      "ABSENT": { field: "Attendance", value: "ABSENT" },
+      "PRESENT": { field: "Attendance", value: "PRESENT" },
+      "SICK LEAVE": { field: "TripStatus", value: "SICK LEAVE" },
+      "SUSPENDED": { field: "TripStatus", value: "SUSPENDED" },
+      "VACATION LEAVE": { field: "TripStatus", value: "VACATION LEAVE" },
+      "HOLD": { field: "TripStatus", value: "HOLD" },
+      "AWOL ALERT": { field: "TripStatus", value: "AWOL ALERT" }
+    };
+    const mapEntry = mapping[lbl];
+    if (mapEntry) {
+      filteredRows = driverRows.filter(r => {
+        const val = (r[mapEntry.field] || "").trim().toUpperCase();
+        return val === mapEntry.value;
+      });
+    }
+  } else if (type.includes("truck")) {
+    filteredRows = truckRows.filter(
+      r => (r.Status || "").trim().toUpperCase() === (label || "").trim().toUpperCase()
+    );
+  } else if (type.includes("trailer")) {
+    filteredRows = trailerRows.filter(
+      r => (r.Status || "").trim().toUpperCase() === (label || "").trim().toUpperCase()
+    );
+  }
+
+  modalValue.textContent = `Rows: ${filteredRows.length} (Showing ${filteredRows.length})`;
+
+  // ================= FORMAT DURATION =================
+  const formatDuration = (daysValue) => {
+    const totalMinutes = daysValue * 24 * 60;
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = Math.floor(totalMinutes % 60);
+
+    if (days > 0 && hours > 0) return `${days} days and ${hours} hours`;
+    if (days > 0) return `${days} days`;
+    if (hours > 0 && minutes > 0) return `${hours} hours and ${minutes} mins`;
+    if (hours > 0) return `${hours} hours`;
+    if (minutes > 0) return `${minutes} mins`;
+    return "just now";
+  };
+
+  // ================= CLEAN DATA =================
+  const formattedRows = filteredRows.map(row => {
+    const copy = { ...row };
+    ["JRAge", "ApprovalAge"].forEach(key => {
+      const raw = copy[key];
+      if (raw && !isNaN(parseFloat(raw))) {
+        const days = parseFloat(raw);
+        copy[key] = formatDuration(days);
+      }
+    });
+    return copy;
+  });
+
+  // ================= BUILD TABLE ROWS =================
+  if (formattedRows.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = headers.length;
+    td.className = "text-center py-4";
+    td.textContent = "No data available";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  const isPlaceholder = txt => {
+    if (!txt) return true;
+    const s = String(txt).trim();
+    return s === "" || /^-+$/.test(s) || /^—+$/.test(s) || s === "--" || s === "—";
+  };
+
+  const splitTokens = str => {
+    if (!str) return [];
+    const normalized = String(str).replace(/<br\s*\/?>/gi, "\n");
+    return normalized
+      .split(/(?:\r?\n|,|;|\||\s{2,})+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  };
+
+  formattedRows.forEach((row, rowIndex) => {
+    const tr = document.createElement("tr");
+    tr.className = rowIndex % 2 === 0 ? "bg-white border-b hover:bg-gray-50" : "bg-blue-50 border-b hover:bg-gray-100";
+
+    headers.forEach(h => {
+      const td = document.createElement("td");
+      td.className = "px-3 py-2 border align-top";
+      let rawValue = row[h];
+      rawValue = rawValue == null ? "" : String(rawValue).trim();
+
+      // ============= JRNumber =============
+      if (h === "JRNumber") {
+        if (isPlaceholder(rawValue)) {
+          td.textContent = "-";
+        } else {
+          const jrNumbers = splitTokens(rawValue);
+          const container = document.createElement("div");
+          container.className = "flex flex-col gap-1 items-start";
+          jrNumbers.forEach(num => {
+            if (isPlaceholder(num)) return;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = num;
+            btn.className = "bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-md shadow-sm";
+            btn.addEventListener("click", e => {
+              e.preventDefault();
+              openJRDetailsModal(num);
+            });
+            container.appendChild(btn);
+          });
+          td.appendChild(container);
+        }
+      }
+
+      // ============= JONum =============
+else if (h === "JONum") {
+  if (isPlaceholder(rawValue)) {
+    td.textContent = "-";
+  } else {
+    const joNumbers = splitTokens(rawValue);
+    const container = document.createElement("div");
+    container.className = "flex flex-col gap-1 items-start";
+    joNumbers.forEach(num => {
+      if (isPlaceholder(num)) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = num;
+      btn.className = "bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-2 py-1 rounded-md shadow-sm";
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        openJODetailsModal(num);
+      });
+      container.appendChild(btn);
+    });
+    td.appendChild(container);
+  }
+}
+
+// ============= JOActivity =============
+else if (h === "JOActivity") {
+  if (isPlaceholder(rawValue)) {
+    td.textContent = "-";
+  } else {
+    const activities = splitTokens(rawValue);
+    const container = document.createElement("div");
+    container.className = "flex flex-col gap-0.5 items-start text-xs text-gray-800";
+
+    activities.forEach(act => {
+      const span = document.createElement("span");
+      span.textContent = act;
+      span.className = "leading-tight";
+      container.appendChild(span);
+    });
+
+    td.appendChild(container);
+  }
+}
+// ============= Default =============
+else {
+  td.textContent = rawValue || "-";
+}
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}   
+
+/* ================================
+   JR MODAL
+================================ */
+function openJRDetailsModal(jrNumber) {
+  const modal = document.getElementById("jrDetailsModal");
+  const box = document.getElementById("jrDetailsBox");
+  const title = document.getElementById("jrDetailsTitle");
+  const content = document.getElementById("jrDetailsContent");
+
+  title.textContent = `JR Details: ${jrNumber}`;
+  content.innerHTML = `<p class="text-gray-700 mt-4">Loading JR details for <b>${jrNumber}</b>...</p>`;
+  modal.classList.remove("hidden");
+
+  setTimeout(() => {
+    box.classList.remove("scale-95", "opacity-0");
+    box.classList.add("scale-100", "opacity-100");
+  }, 10);
+
+  const rows = (window.jr_detail || []).filter(
+    r => (r.jrNumber || "").trim().toUpperCase() === jrNumber.trim().toUpperCase()
+  );
+
+  if (rows.length === 0) {
+    content.innerHTML = `<p class="text-center text-gray-500 py-4">No data found for <b>${jrNumber}</b></p>`;
+    return;
+  }
+
+  let html = `
+    <div class="overflow-x-auto mt-3">
+      <table class="min-w-full border border-gray-300 text-sm bg-white">
+        <thead class="bg-blue-600 text-white">
+          <tr>
+            <th class="px-3 py-2 border border-gray-300 text-left">JR</th>
+            <th class="px-3 py-2 border border-gray-300 text-left">Repair</th>
+            <th class="px-3 py-2 border border-gray-300 text-left">JO #</th>
+            <th class="px-3 py-2 border border-gray-300 text-left">Maintenance Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  rows.forEach(r => {
+    html += `
+      <tr>
+        <td class="border border-gray-300 px-3 py-2">${r.jrNumber || "-"}</td>
+        <td class="border border-gray-300 px-3 py-2">${(r.repair || "-").replace(/\n/g, "<br>")}</td>
+        <td class="border border-gray-300 px-3 py-2 text-center">
+          ${
+            r.joNumber
+              ? r.joNumber
+                  .split("\n")
+                  .map(
+                    jo => `
+                      <button class="text-black text-xs px-2 py-1 rounded"
+                        onclick="openJODetailsModal('${jo.trim()}')">
+                        ${jo.trim()}
+                      </button>
+                    `
+                  )
+                  .join("<br>")
+              : `<span class="text-green-500 font-bold">✔</span>`
+          }
+        </td>
+        <td class="border border-gray-300 px-3 py-2">${(r.maintenanceRemarks || "-").replace(/\n/g, "<br>")}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  content.innerHTML = html;
+}
+
+function closeJRDetailsModal() {
+  const modal = document.getElementById("jrDetailsModal");
+  const box = document.getElementById("jrDetailsBox");
+  box.classList.add("scale-95", "opacity-0");
+  setTimeout(() => modal.classList.add("hidden"), 150);
+}
+
+document.getElementById("jrDetailsModal").addEventListener("click", (e) => {
+  const box = document.getElementById("jrDetailsBox");
+  if (!box.contains(e.target)) closeJRDetailsModal();
+});
+
+
+/* ================================
+   JO MODAL
+================================ */
+function openJODetailsModal(joNumber) {
+  const modal = document.getElementById("joDetailsModal");
+  const box = document.getElementById("joDetailsBox");
+  const title = document.getElementById("joDetailsTitle");
+  const content = document.getElementById("joDetailsContent");
+
+  title.textContent = `JO Details: ${joNumber}`;
+  content.innerHTML = `<p class="text-gray-700 mt-4">Loading JO details for <b>${joNumber}</b>...</p>`;
+  modal.classList.remove("hidden");
+
+  setTimeout(() => {
+    box.classList.remove("scale-95", "opacity-0");
+    box.classList.add("scale-100", "opacity-100");
+  }, 10);
+
+  const rows = (window.jo_detail || []).filter(
+    r => (r.joNumber || "").trim().toUpperCase() === joNumber.trim().toUpperCase()
+  );
+
+  if (rows.length === 0) {
+    content.innerHTML = `<p class="text-center text-gray-500 py-4">No data found for <b>${joNumber}</b></p>`;
+    return;
+  }
+
+  const r = rows[0];
+  let html = `
+    <div class="overflow-x-auto border rounded-lg mt-4 mb-6">
+      <table class="min-w-full text-sm border-collapse">
+        <thead class="bg-orange-600 text-white text-left">
+          <tr>
+            <th class="px-3 py-2 border">JONumber</th>
+            <th class="px-3 py-2 border">Repair ID</th>
+            <th class="px-3 py-2 border">Selected UR</th>
+            <th class="px-3 py-2 border">Activity</th>
+            <th class="px-3 py-2 border">Class</th>
+            <th class="px-3 py-2 border">Location</th>
+            <th class="px-3 py-2 border">JO Remarks</th>
+            <th class="px-3 py-2 border">JO Notes</th>
+            <th class="px-3 py-2 border">ETR</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white text-gray-700">
+          <tr>
+            <td class="border px-3 py-2">${(r.joNumber || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.repairId || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.selectedUR || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.activity || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.class || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.location || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.joRemarks || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.joNotes || "-").replace(/\n/g, "<br>")}</td>
+            <td class="border px-3 py-2">${(r.etr || "-").replace(/\n/g, "<br>")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="text-md font-semibold mb-2 text-gray-800">Purchasing</h3>
+    <div class="overflow-x-auto border rounded-lg">
+      <table class="min-w-full text-sm border-collapse">
+        <thead class="bg-orange-600 text-white text-left">
+          <tr>
+            <th class="px-3 py-2 border">WRF#</th>
+            <th class="px-3 py-2 border">PR Remarks</th>
+            <th class="px-3 py-2 border">Item Desc</th>
+            <th class="px-3 py-2 border">ETA</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white text-gray-700">
+          ${
+            !r.wrf
+              ? `<tr><td colspan="4" class="text-center py-3 text-gray-500">NO WRF YET</td></tr>`
+              : `
+                <tr>
+                  <td class="border px-3 py-2">${r.wrf || "-"}</td>
+                  <td class="border px-3 py-2">${r.prRemarks || "-"}</td>
+                  <td class="border px-3 py-2">${r.itemDesc || "-"}</td>
+                  <td class="border px-3 py-2">${r.eta || "-"}</td>
+                </tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  content.innerHTML = html;
+}
+
+function closeJODetailsModal() {
+  const modal = document.getElementById("joDetailsModal");
+  const box = document.getElementById("joDetailsBox");
+  box.classList.add("scale-95", "opacity-0");
+  setTimeout(() => modal.classList.add("hidden"), 150);
+}
+
+document.getElementById("joDetailsModal").addEventListener("click", (e) => {
+  const box = document.getElementById("joDetailsBox");
+  if (!box.contains(e.target)) closeJODetailsModal();
+});
+
+
+
+// ================= REACTIVE ARRAYS =================
+driverRows  = makeReactive(driverRows, refreshModalIfOpen);
+truckRows   = makeReactive(truckRows, refreshModalIfOpen);
+trailerRows = makeReactive(trailerRows, refreshModalIfOpen);
+
+// ================= CLOSE MODAL =================
+function closeBreakdownModal1() {
+  const modal = document.getElementById("breakdownModal1");
+  if (!modal) return;
+
+  modal.classList.add("fade-out");
+  setTimeout(() => {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex", "fade-out");
+    document.getElementById("modalTableBody").innerHTML = "";
+    document.getElementById("modalTableHead").innerHTML = "";
+    document.getElementById("modalValue").textContent = "";
+    currentModal = null;
+  }, 200);
+}
+
+
+// Close modal when clicking outside
+function outsideClick(e) {
+  if (e.target.id === "breakdownModal1",'') {
+    closeBreakdownModal1();
+
+    // Force reset after fade-out (just in case)
+    setTimeout(() => {
+      const tbody = document.getElementById("modalTableBody");
+      const thead = document.getElementById("modalTableHead");
+      const modalValue = document.getElementById("modalValue");
+
+      tbody.innerHTML = "";
+      thead.innerHTML = "";
+      modalValue.textContent = "";
+
+      currentModal = null; // reset modal state
+      currentjrDetailsModal = null;
+      currentjoDetailsModal = null;
+    }, 200); // match CSS closing animation
+  }
+}
+// Listen for ESC key
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    const modal = document.getElementById("breakdownModal1");
+    if (modal && !modal.classList.contains("hidden")) {
+      closeBreakdownModal1();
+    }
+  }
+});
+
+
+// Driver
+function updateDriverCards(data){
+  const counts={present:0,ur_absent:0,absent:0,running:0,available:0,rest:0,driver_preparing:0,driver_available:0,
+    for_rescue:0,ur_driver:0,ur_rest:0,sick_leave:0,suspended:0,vacation_leave:0,hold:0,awol:0};
+
+   data.forEach(row => {
+    const trip = (row.TripStatus || "").toUpperCase().trim();
+    const att  = (row.Attendance || "").toUpperCase().trim();
+    
+     switch(trip){
+      case "ABSENT": counts.absent++; break;
+      case "AVAILABLE": counts.available++; break;
+      case "DRIVER PREPAIRING": counts.driver_preparing++; break;
+      case "REST": counts.rest++; break;
+      case "RUNNING": counts.running++; break;
+      case "SICK LEAVE": counts.sick_leave++; break;
+      case "SUSPENDED": counts.suspended++; break;
+      case "UR ABSENT": counts.ur_absent++; break;
+      case "DRIVER AVAILABLE": counts.driver_available++; break;
+      case "UR REST": counts.ur_rest++; break;
+      case "VACATION LEAVE": counts.vacation_leave++; break;
+      case "FOR RESCUE": counts.for_rescue++; break;
+      case "UR AVAILABLE DRIVER": counts.ur_driver++; break;
+      case "HOLD": counts.hold++; break;
+      case "AWOL ALERT": counts.awol++; break;
+ 
+    }
+     switch(att){
+      case "PRESENT": counts.present++; break;
+
+    }
+    });
+  document.getElementById("driverTotal").textContent = 
+    (counts.running + counts.ur_absent + counts.absent + counts.available + counts.driver_preparing + counts.driver_available + counts.for_rescue + counts.ur_driver + counts.ur_rest + counts.rest) +
+    (counts.sick_leave + counts.suspended + counts.vacation_leave + counts.hold + counts.awol);
+  document.getElementById("driverAbsentTotal").textContent=counts.absent + counts.ur_absent;
+   document.getElementById("driverActive").textContent=counts.running + counts.ur_absent + counts.absent + counts.available + counts.driver_preparing + counts.driver_available + counts.for_rescue  + counts.ur_driver + counts.ur_rest + counts.rest;
+  document.getElementById("driverInactive").textContent=counts.sick_leave + counts.suspended + counts.vacation_leave + counts.hold + counts.awol;
+  document.getElementById("driverPresentTotal").textContent=counts.running + counts.available + counts.driver_preparing + counts.driver_available + counts.for_rescue + counts.ur_driver + counts.ur_rest + counts.rest;
+  document.getElementById("driverRunning").textContent=counts.running;
+  document.getElementById("driverAvailable").textContent=counts.available;
+  document.getElementById("driverRest").textContent=counts.rest;
+  document.getElementById("driverURAbsent").textContent=counts.ur_absent;
+  document.getElementById("driverAbsent").textContent=counts.absent;
+
+  breakdownData.driveractive=[
+
+    {label:"RUNNING",value:counts.running,color:"from-red-400 to-red-600"},
+    {label:"AVAILABLE",value:counts.available,color:"from-green-400 to-green-600"},
+    {label:"DRIVER PREPARING",value:counts.driver_preparing,color:"from-red-400 to-red-600"},
+    {label:"DRIVER AVAILABLE",value:counts.driver_available,color:"from-green-400 to-green-600"},
+    {label:"FOR RESCUE",value:counts.for_rescue,color:"from-red-400 to-red-600"},
+    {label:"UR AVAILABLE DRIVER",value:counts.ur_driver,color:"from-red-400 to-red-600"},
+    {label:"UR REST",value:counts.ur_rest,color:"from-red-400 to-red-600"},
+    {label:"REST",value:counts.rest,color:"from-yellow-400 to-yellow-600"},
+        {label:"UR ABSENT",value:counts.ur_absent,color:"from-red-400 to-red-600"},
+    {label:"ABSENT",value:counts.absent,color:"from-red-400 to-red-600"},
+  ];
+    breakdownData.driverinactive=[
+    {label:"SICK LEAVE",value:counts.sick_leave,color:"from-red-400 to-red-600"},
+    {label:"SUSPENDED",value:counts.suspended,color:"from-red-400 to-red-600"},
+    {label:"VACATION LEAVE",value:counts.vacation_leave,color:"from-red-400 to-red-600"},
+    {label:"HOLD",value:counts.hold,color:"from-red-400 to-red-600"},
+    {label:"AWOL ALERT",value:counts.awol,color:"from-green-400 to-green-600"},
+  ];
+
+  breakdownData.driverpresent=[
+    {label:"RUNNING",value:counts.running,color:"from-red-400 to-red-600"},
+    {label:"AVAILABLE",value:counts.available,color:"from-green-400 to-green-600"},
+    {label:"DRIVER PREPARING",value:counts.driver_preparing,color:"from-red-400 to-red-600"},
+    {label:"DRIVER AVAILABLE",value:counts.driver_available,color:"from-green-400 to-green-600"},
+    {label:"FOR RESCUE",value:counts.for_rescue,color:"from-red-400 to-red-600"},
+    {label:"UR AVAILABLE DRIVER",value:counts.ur_driver,color:"from-red-400 to-red-600"},
+    {label:"UR REST",value:counts.ur_rest,color:"from-red-400 to-red-600"},
+        {label:"REST",value:counts.rest,color:"from-yellow-400 to-yellow-600"}];
+  breakdownData.driverabsent=[
+    {label:"UR ABSENT",value:counts.ur_absent,color:"from-red-400 to-red-600"},
+    {label:"ABSENT",value:counts.absent,color:"from-red-400 to-red-600"}];
+}
+
+// ================= FILTERING FUNCTION =================
+function applyModalFilters() {
+  if (!currentModal) return;
+
+  const teamValue   = document.getElementById("teamFilter").value.trim().toUpperCase();
+  const statusValue = document.getElementById("statusFilter").value.trim().toUpperCase();
+  const tagValue    = document.getElementById("tagFilter").value.trim().toUpperCase();
+  const searchValue = document.getElementById("searchInput").value.trim().toUpperCase();
+
+  const tbody = document.getElementById("modalTableBody");
+  tbody.innerHTML = "";
+
+  // Determine which dataset to filter
+  let dataset = [];
+  if (currentModal.type.includes("driver")) dataset = driverRows;
+  else if (currentModal.type.includes("truck")) dataset = truckRows;
+  else if (currentModal.type.includes("trailer")) dataset = trailerRows;
+
+  // Filter
+  const filtered = dataset.filter(row => {
+    let teamMatch = !teamValue || (row.Team || row.TeamTMS || "").toUpperCase().includes(teamValue);
+    let statusMatch = !statusValue || (row.Status || row.TractorUR || row.TrailerUR || "").toUpperCase().includes(statusValue);
+    let tagMatch = !tagValue || (row.Tag || "").toUpperCase().includes(tagValue);
+    let searchMatch = !searchValue || Object.values(row).some(v => (v || "").toString().toUpperCase().includes(searchValue));
+    return teamMatch && statusMatch && tagMatch && searchMatch;
+  });
+
+  // Update modal total
+  document.getElementById("modalValue").textContent = filtered.length;
+
+  // Build rows
+  filtered.forEach(row => {
+    const tr = document.createElement("tr");
+    currentModal.headers.forEach(h => {
+      const td = document.createElement("td");
+      td.textContent = row[h] || "";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// ================= HOOK FILTER INPUTS =================
+document.getElementById("teamFilter").addEventListener("input", applyModalFilters);
+document.getElementById("statusFilter").addEventListener("input", applyModalFilters);
+document.getElementById("tagFilter").addEventListener("input", applyModalFilters);
+document.getElementById("searchInput").addEventListener("input", applyModalFilters);
+
+// ================= OUTSIDE CLICK TO CLOSE MODAL =================
+function outsideClick(event) {
+  const modal = document.getElementById("breakdownModal1");
+  if (event.target === modal) closeBreakdownModal1();
+}
+
+// ================= CLOSE MODAL =================
+function closeBreakdownModal1() {
+  const modal = document.getElementById("breakdownModal1");
+  modal.classList.add("fade-out");
+  setTimeout(() => {
+    modal.classList.remove("flex");
+    modal.classList.add("hidden");
+  }, 200);
+}
+function resetModalFilters() {
+  document.getElementById("teamFilter").value = "";
+  document.getElementById("statusFilter").value = "";
+  document.getElementById("tagFilter").value = "";
+  document.getElementById("searchInput").value = "";
+}
+
+function closeBreakdownModal1() {
+  const modal = document.getElementById("breakdownModal1");
+  modal.classList.add("fade-out");
+  setTimeout(() => {
+    modal.classList.remove("flex");
+    modal.classList.add("hidden");
+    // ✅ Reset filters after modal fully closed
+    resetModalFilters();
+    // ✅ Reapply filter to restore full dataset
+    applyModalFilters();
+  }, 200);
+}
+function highlightMismatchedTripStatus() {
+  truckRows.forEach(truck => {
+    const pairId = (truck.Pair || "").trim().toUpperCase();
+    const driverId = (truck.Driver || "").trim().toUpperCase();
+
+    const trailer = trailerRows.find(
+      t => (t.Unit || "").trim().toUpperCase() === pairId
+    );
+    const driver = driverRows.find(
+      d => (d.Name || "").trim().toUpperCase() === driverId
+    );
+    const truckStatus = (truck.Status || "").trim().toUpperCase();
+    const trailerStatus = (trailer?.Status || "").trim().toUpperCase();
+    const driverStatus = (driver?.Status || "").trim().toUpperCase();
+
+    const allGood =
+      truckStatus === "ON TRIP" &&
+      trailerStatus === "ON TRIP" &&
+      driverStatus === "RUNNING";
+
+    // Find the corresponding dashboard element (for example, a row or card)
+    const el = document.querySelector(`[data-unit='${truck.Unit}']`);
+    if (!el) return;
+
+    // Blink if they don't all match
+    if (!allGood) {
+      el.classList.add("blink-warning");
+    } else {
+      el.classList.remove("blink-warning");
+    }
+  });
+}
+window.addEventListener('resize', function() {
+  // Your code to execute when the window is resized
+  const newWidth = window.innerWidth;
+  const newHeight = window.innerHeight;
+  console.log(`Window resized to: ${newWidth}px width, ${newHeight}px height`);
+});
+// Trigger the first data load
+loadData();
+setInterval(loadData, 300000);
+</script>
+</body>
+</html>
